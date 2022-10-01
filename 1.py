@@ -8,7 +8,7 @@ username = input('\033[92m{+} Enter username to DOX: ')
 
 
 # INSTAGRAM
-instagram = f'https://www.instagram.com/{username}'
+nstagram = f'https://www.instagram.com/{username}'
 
 # FACEBOOK
 facebook = f'https://www.facebook.com/{username}'
@@ -365,7 +365,7 @@ def search():
 
     time.sleep(0.5)
 
-    print('.......')
+    print('.......\n')
 
     time.sleep(0.5)
 
