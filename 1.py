@@ -1,423 +1,187 @@
+#Required Libraries importing
+from Crypto.Cipher import DES
+from Crypto.Hash import SHA256
+import turtle
 import requests
-import time
-import os
-import pyqt5
+from getpass import getpass
+from Crypto.Protocol.KDF import PBKDF2
+Key_length=100005
+salt="$ez*&214097GDAKACNASC;LSOSSBAdjskasnmosuf!@#$^()_adsa"
+#Encrypting function
+def encryptor(path):
+	#Opening the image file
+	try:
+		with open(path, 'rb') as imagefile:
+			image=imagefile.read()
+			
+		#Padding	
+		while len(image)%8!=0:
+			image+=b" "
+	except:
+		print("Error loading the file, make sure file is in same directory, spelled correctly and non-corrupted")
+		exit()
+	
+	#hashing original image in SHA256	
+	hash_of_original=SHA256.new(data=image)
+	
+	
+	
+	#Inputting Keys
+	key_enc=getpass(prompt="Enter minimum 8 character long password:")
+	#Checking if key is of invalid length
+	while len(key_enc)<8:
+		key_enc=getpass(prompt="Invalid password! Enter atleast 8 character password:")
+	
+	key_enc_confirm=getpass(prompt="Enter password again:")
+	while key_enc!=key_enc_confirm:
+		print("Key Mismatch.Try again!!!!!")
+		key_enc=getpass(prompt="Enter 8 character long password:")
+	
+		#Checking if key is of invalid length
+		while len(key_enc)<8:
+			key_enc=getpass(prompt="Invalid password! Enter atleast 8 character password:")
+		key_enc_confirm=getpass(prompt="Enter password again:")
+	
+	
+	#Salting and hashing password
+	key_enc=PBKDF2(key_enc,salt,48,Key_length)
+
+	
+	#Encrypting using triple 3 key DES	
+	print("Wait it is being encrypting.....\n")	
+	try:
+		
+		cipher1=DES.new(key_enc[0:8],DES.MODE_CBC,key_enc[24:32])
+		ciphertext1=cipher1.encrypt(image)
+		cipher2=DES.new(key_enc[8:16],DES.MODE_CBC,key_enc[32:40])
+		ciphertext2=cipher2.decrypt(ciphertext1)
+		cipher3=DES.new(key_enc[16:24],DES.MODE_CBC,key_enc[40:48])
+		ciphertext3=cipher3.encrypt(ciphertext2)
+		
+		print("\n------ENCRYPTION SUCCESSFUL-------")
+	except:
+		print("	Encryption failed...Possible causes:Library not installed properly/low device memory/Incorrect padding or conversions")
+		exit()
+	
+	#Adding hash at end of encrypted bytes
+	ciphertext3+=hash_of_original.digest()
+
+	
+	#Saving the file encrypted
+	try:
+		dpath="encrypted_"+path
+		with open(dpath, 'wb') as image_file:
+				image_file.write(ciphertext3)
+		print("Encrypted Image Saved successfully as filename "+dpath)
+
+		
+	except:
+		temp_path=input("Saving file failed!. Enter alternate name without format to save the encrypted file. If it is still failing then check system memory")
+		try:
+			dpath=temp_path+path
+			dpath="encrypted_"+path
+			with open(dpath, 'wb') as image_file:
+					image_file.write(ciphertext3)
+			print("Encrypted Image Saved successfully as filename in the same directory "+dpath)
+			exit()
+		except:
+			print("	Failed....Exiting...")
+			exit()
+#decrypting function
+def decryptor(encrypted_image_path):
+	
+	try:
+		with open(encrypted_image_path,'rb') as encrypted_file:
+			encrypted_data_with_hash=encrypted_file.read()
+			
+	except:
+		print("	Unable to read source cipher data. Make sure the file is in same directory...Exiting...")
+		exit()
+	
+	
+	#Key Authentication
+	key_dec=getpass(prompt="Enter password:")
+	
+	
+	#extracting hash and cipher data without hash
+	extracted_hash=encrypted_data_with_hash[-32:]
+	encrypted_data=encrypted_data_with_hash[:-32]
+
+	
+	#salting and hashing password
+	key_dec=PBKDF2(key_dec,salt,48,Key_length)
+	
+
+	#decrypting using triple 3 key DES
+	print("	Decrypting...")
+	try:
+		
+		cipher1=DES.new(key_dec[16:24],DES.MODE_CBC,key_dec[40:48])
+		plaintext1=cipher1.decrypt(encrypted_data)
+		cipher2=DES.new(key_dec[8:16],DES.MODE_CBC,key_dec[32:40])
+		plaintext2=cipher2.encrypt(plaintext1)
+		cipher3=DES.new(key_dec[0:8],DES.MODE_CBC,key_dec[24:32])
+		plaintext3=cipher3.decrypt(plaintext2)
+		
+		
+	except:
+		print("Decryption failed...Possible causes:Library not installed properly/low device memory/Incorrect padding or conversions")
+		
+	#hashing decrypted plain text
+	hash_of_decrypted=SHA256.new(data=plaintext3)
+
+	
+	#matching hashes
+	if hash_of_decrypted.digest()==extracted_hash:
+		print("Password Correct !!!")
+		print("	------DECRYPTION SUCCESSFUL------")
+	else:
+		print("Incorrect Password!!!!!")
+		exit()
+		
+		
+		
+	#saving the decrypted file	
+	try:
+		epath=encrypted_image_path
+		if epath[:10]=="encrypted_":
+			epath=epath[10:]
+		epath="decrypted_"+epath
+		with open(epath, 'wb') as image_file:
+			image_file.write(plaintext3)
+		print("	Image saved successully with name " + epath)
+	except:
+		temp_path=input("Saving file failed!. Enter alternate name without format to save the decrypted file. If it is still failing then check system memory")
+		try:
+			epath=temp_path+encrypted_image_path
+			with open(epath, 'wb') as image_file:
+				image_file.write(plaintext3)
+			print("	Image saved successully with name " + epath)
+			print("	Note: If the decrypted image is appearing to be corrupted then password may be wrong or it may be file format error")
+		except:
+			print("Failed! Exiting...")
+			exit()
+
+
+try:
+	choice=int(input("		\nChoose 1 for Encryption || 2 for Decryption: \n"))
+	while choice!=1 and choice!=2:
+		choice=int(input("		      Invalid Choice! Try Again:\n"))
+except:
+	print("Error, please provide valid Input")
+	exit()
+
+
+
+if choice==1:
+#Encryption Mode, function call
+	path=input("Enter image's name to be encypted:\n")
+	encryptor(path)
+		
+
+
+else:
+#Decryption mode, function call
+	encrypted_image_path=input("Enter image's name to decrypted:\n")
+	decryptor(encrypted_image_path)
 
-os.system("clear")
-''' INPUT USERNMAE TO DOX '''
-username = input('\033[92m{+} Enter username to DOX: ')
-
-
-# INSTAGRAM
-nstagram = f'https://www.instagram.com/{username}'
-
-# FACEBOOK
-facebook = f'https://www.facebook.com/{username}'
-
-#TWITTER
-twitter = f'https://www.twitter.com/{username}'
-
-# YOUTUBE
-youtube = f'https://www.youtube.com/{username}'
-
-# BLOGGER
-blogger = f'https://{username}.blogspot.com'
-
-# GOOGLE+
-google_plus = f'https://plus.google.com/s/{username}/top'
-
-# REDDIT
-reddit = f'https://www.reddit.com/user/{username}'
-
-# WORDPRESS
-wordpress = f'https://{username}.wordpress.com'
-
-# PINTEREST
-pinterest = f'https://www.pinterest.com/{username}'
-
-# GITHUB
-github = f'https://www.github.com/{username}'
-
-# TUMBLR
-tumblr = f'https://{username}.tumblr.com'
-
-# FLICKR
-flickr = f'https://www.flickr.com/people/{username}'
-
-# STEAM
-steam = f'https://steamcommunity.com/id/{username}'
-
-# VIMEO
-
-vimeo = f'https://vimeo.com/{username}'
-
-# SOUNDCLOUD
-
-soundcloud = f'https://soundcloud.com/{username}'
-
-# DISQUS
-
-disqus = f'https://disqus.com/by/{username}'
-
-# MEDIUM
-
-medium = f'https://medium.com/@{username}'
-
-# DEVIANTART
-
-deviantart = f'https://{username}.deviantart.com'
-
-# VK
-
-vk = f'https://vk.com/{username}'
-
-# ABOUT.ME
-
-aboutme = f'https://about.me/{username}'
-
-# IMGUR
-
-imgur = f'https://imgur.com/user/{username}'
-
-# FLIPBOARD
-
-flipboard = f'https://flipboard.com/@{username}'
-
-# SLIDESHARE
-
-slideshare = f'https://slideshare.net/{username}'
-
-# FOTOLOG
-
-fotolog = f'https://fotolog.com/{username}'
-
-# SPOTIFY
-
-spotify = f'https://open.spotify.com/user/{username}'
-
-# MIXCLOUD
-
-mixcloud = f'https://www.mixcloud.com/{username}'
-
-# SCRIBD
-
-scribd = f'https://www.scribd.com/{username}'
-
-# BADOO
-
-badoo = f'https://www.badoo.com/en/{username}'
-# PATREON
-
-patreon = f'https://www.patreon.com/{username}'
-
-# BITBUCKET
-
-bitbucket = f'https://bitbucket.org/{username}'
-
-# DAILYMOTION
-
-dailymotion = f'https://www.dailymotion.com/{username}'
-
-# ETSY
-
-etsy = f'https://www.etsy.com/shop/{username}'
-
-# CASHME
-
-cashme = f'https://cash.me/{username}'
-
-# BEHANCE
-
-behance = f'https://www.behance.net/{username}'
-
-# GOODREADS
-
-goodreads = f'https://www.goodreads.com/{username}'
-
-# INSTRUCTABLES
-
-instructables = f'https://www.instructables.com/member/{username}'
-
-# KEYBASE
-
-keybase = f'https://keybase.io/{username}'
-
-# KONGREGATE
-
-kongregate = f'https://kongregate.com/accounts/{username}'
-
-# LIVEJOURNAL
-
-livejournal = f'https://{username}.livejournal.com'
-
-# ANGELLIST
-
-angellist = f'https://angel.co/{username}'
-
-# LAST.FM
-
-last_fm = f'https://last.fm/user/{username}'
-
-# DRIBBBLE
-
-dribbble = f'https://dribbble.com/{username}'
-
-# CODECADEMY
-
-codecademy = f'https://www.codecademy.com/{username}'
-# GRAVATAR
-
-gravatar = f'https://en.gravatar.com/{username}'
-
-# PASTEBIN
-
-pastebin = f'https://pastebin.com/u/{username}'
-
-# FOURSQUARE
-
-foursquare = f'https://foursquare.com/{username}'
-
-# ROBLOX
-
-roblox = f'https://www.roblox.com/user.aspx?username={username}'
-
-# GUMROAD
-
-gumroad = f'https://www.gumroad.com/{username}'
-
-# NEWSGROUND
-
-newsground = f'https://{username}.newgrounds.com'
-
-# WATTPAD
-
-wattpad = f'https://www.wattpad.com/user/{username}'
-
-# CANVA
-
-canva = f'https://www.canva.com/{username}'
-
-# CREATIVEMARKET
-
-creative_market = f'https://creativemarket.com/{username}'
-
-# TRAKT
-
-trakt = f'https://www.trakt.tv/users/{username}'
-
-# 500PX
-
-five_hundred_px = f'https://500px.com/{username}'
-
-# BUZZFEED
-
-buzzfeed = f'https://buzzfeed.com/{username}'
-
-# TRIPADVISOR
-
-tripadvisor = f'https://tripadvisor.com/members/{username}'
-
-# HUBPAGES
-
-hubpages = f'https://{username}.hubpages.com'
-
-# CONTENTLY
-
-contently = f'https://{username}.contently.com'
-
-# HOUZZ
-
-houzz = f'https://houzz.com/user/{username}'
-#BLIP.FM
-
-blipfm = f'https://blip.fm/{username}'
-
-# WIKIPEDIA
-
-wikipedia = f'https://www.wikipedia.org/wiki/User:{username}'
-
-# HACKERNEWS
-
-hackernews = f'https://news.ycombinator.com/user?id={username}'
-
-# CODEMENTOR
-
-codementor = f'https://www.codementor.io/{username}'
-
-# REVERBNATION
-
-reverb_nation = f'https://www.reverbnation.com/{username}'
-
-# DESIGNSPIRATION
-
-designspiration = f'https://www.designspiration.net/{username}'
-
-# BANDCAMP
-
-bandcamp = f'https://www.bandcamp.com/{username}'
-
-# COLOURLOVERS
-
-colourlovers = f'https://www.colourlovers.com/love/{username}'
-
-# IFTTT
-
-ifttt = f'https://www.ifttt.com/p/{username}'
-
-# EBAY
-
-ebay = f'https://www.ebay.com/usr/{username}'
-
-# SLACK
-
-slack = f'https://{username}.slack.com'
-
-# OKCUPID
-
-okcupid = f'https://www.okcupid.com/profile/{username}'
-
-# TRIP
-
-trip = f'https://www.trip.skyscanner.com/user/{username}'
-
-# ELLO
-
-ello = f'https://ello.co/{username}'
-
-# TRACKY
-
-tracky = f'https://tracky.com/user/~{username}'
-
-# BASECAMP
-
-basecamp = f'https://{username}.basecamphq.com/login'
-
-''' WEBSITE LIST - USE FOR SEARCHING OF USERNAME '''
-
-WEBSITES = [
-
-    instagram, facebook, twitter, youtube, blogger, google_plus, reddit,
-
-    wordpress, pinterest, github, tumblr, flickr, steam, vimeo, soundcloud, disqus,
-
-    medium, deviantart, vk, aboutme, imgur, flipboard, slideshare, fotolog, spotify,
-
-    mixcloud, scribd, badoo, patreon, bitbucket, dailymotion, etsy, cashme, behance,
-
-    goodreads, instructables, keybase, kongregate, livejournal, angellist, last_fm,
-
-    dribbble, codecademy, gravatar, pastebin, foursquare, roblox, gumroad, newsground,
-
-    wattpad, canva, creative_market, trakt, five_hundred_px, buzzfeed, tripadvisor, hubpages,
-
-    contently, houzz, blipfm, wikipedia, hackernews, reverb_nation, designspiration,
-
-    bandcamp, colourlovers, ifttt, ebay, slack, okcupid, trip, ello, tracky, basecamp,
-
-]
-
-''' COLOUR PRINTING FUNCTION '''
-
-
-def outer_func(colour):
-
-    def inner_function(msg):
-
-        print(f'{colour}{msg}')
-
-    return inner_function
-
-
-''' COLOUR PRINTS '''
-
-GREEN = outer_func('\033[92m')
-
-YELLOW = outer_func('\033[93m')
-
-RED = outer_func('\033[91m')
-
-''' BANNER '''
-
-
-def banner():
-
-    print("\033[1;36;40m")
-
-    os.system("figlet S o c O S I N T")
-
-    print(
-        "\033[1;34;40m[\033[1;31;40m+\033[1;34;40m] \033[1;31;40mAuthor : b3tar00t")
-
-    print(" ")
-
-    print("\033[1;34;40m[\033[1;31;40m+\033[1;34;40m] \033[1;31;40mGithub : https://github.com/b3tar00t")
-
-    print(" ")
-
-    print(
-        "\033[1;34;40m[\033[1;31;40m+\033[1;34;40m] \033[1;31;40mInstagram : @b3ta_r00t")
-
-    print(" ")
-
-
-def search():
-
-    GREEN(f'[+] Searching for username:{username}')
-
-    time.sleep(0.5)
-
-    print('.......\n')
-
-    time.sleep(0.5)
-
-    print('.......\n')
-
-    time.sleep(0.5)
-
-    GREEN(f'[+] Processing... Please Wait\n')
-
-    time.sleep(0.5)
-
-    time.sleep(1)
-
-    count = 0
-
-    match = True
-
-    for url in WEBSITES:
-
-        r = requests.get(url)
-
-        if r.status_code == 200:
-
-            if match == True:
-
-                GREEN('[+] FOUND MATCHES')
-
-                match = False
-
-            YELLOW(f'\n{url} - {r.status_code} - OK')
-
-            if username in r.text:
-
-                GREEN(
-                    f'POSITIVE MATCH: Username:{username} - text has been detected in url.')
-
-            else:
-
-                GREEN(
-                    f'POSITIVE MATCH: Username:{username} - \033[91mtext has NOT been detected in url. ')
-
-        count += 1
-
-    total = len(WEBSITES)
-
-    GREEN(
-        f'FINISHED: A total of {count} MATCHES found out of {total} websites.')
-
-
-if __name__ == '__main__':
-
-    banner()
-
-    search()
